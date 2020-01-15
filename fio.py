@@ -20,7 +20,7 @@ def parse_csv(data_file):
 
     with open(data_file, 'r') as f:
         arr = np.genfromtxt(f, delimiter=',', skip_header=1, dtype=np.float32, converters={0: conv})
-        arr = np.delete(arr, 0, axis=1)
+        arr = arr[:,1:]
         arr = arr.reshape((len(cols), len(rows), -1), order='F')
 
     return {
