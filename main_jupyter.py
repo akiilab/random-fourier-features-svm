@@ -41,7 +41,7 @@ Y_train_orig = fio.load_file(train_data_dict['tcsv_phs'])
 X_valid_orig = fio.load_file(eval_data_dict['fcsv_phs'])
 Y_valid_orig = fio.load_file(eval_data_dict['tcsv_phs'])
 train_sample = fio.load_sample_file(train_dataset_dict['Short-TrainSet-UdrSamp-3_3_1p0_1p0_0p1'])
-valid_sample = fio.load_sample_file(valid_dataset_dict['Short-TrainSet-NoUdrSamp'])
+valid_sample = fio.load_sample_file(valid_dataset_dict['Short-ValidSet-NoUdrSamp'])
 
 print("the length of training set:", len(X_train_orig))
 print("the length of evaluating set:", len(X_valid_orig))

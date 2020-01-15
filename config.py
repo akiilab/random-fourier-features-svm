@@ -35,7 +35,7 @@ train_dataset_dict = {
         }
 
 valid_dataset_dict = {
-        'Short-TrainSet-NoUdrSamp': [
+        'Short-ValidSet-NoUdrSamp': [
             './cases/sample/3x4.pkl',
             './cases/sample/10x20.pkl',
             ],
