@@ -8,7 +8,7 @@ def undersample(arr, idx):
     # X_train[0]['data'][filt[:,1],filt[:,0]]
     if isinstance(arr, list):
         return [undersample(f, i) for f, i in zip(arr, idx)]
-    return arr[idx[:,0],idx[:,1]]
+    return arr[idx[:,1],idx[:,0]]
 
 # def get_feat_stat(feat_map):
 #     feat_stats = {}

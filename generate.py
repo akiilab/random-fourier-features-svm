@@ -56,7 +56,7 @@ def main():
                     (x, y, random.getrandbits(1)))
 
             if random.getrandbits(1):
-                samples.append((j, i))
+                samples.append((i, j))
 
     fd.close
     ft.close
