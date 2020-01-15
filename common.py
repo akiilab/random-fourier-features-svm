@@ -98,6 +98,7 @@ def expand(A, window_size):
 
     A = np.pad(A, pad_width=((p,p),(p,p),(0,0)), mode='constant')
     A = np.lib.stride_tricks.as_strided(A, shape=(d0,d1,n,n,d2), strides=(s0,s1,s0,s1,s2))
+    print("reshape: (", d0,d1,n,n,d2, ") -> (", d0,d1,d2*n*n, ")")
     A = A.reshape((d0,d1,d2*n*n))
 
     return A
