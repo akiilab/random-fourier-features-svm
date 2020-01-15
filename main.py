@@ -30,8 +30,8 @@ X_valid = common.undersample(X_valid, valid_sample)
 Y_train = common.undersample(Y_train, train_sample)
 Y_valid = common.undersample(Y_valid, valid_sample)
 
-X_train = np.concatenate(X_train).astype(np.float32)
-X_valid = np.concatenate(X_valid).astype(np.float32)
+X_train = np.concatenate(X_train)
+X_valid = np.concatenate(X_valid)
 Y_train = np.concatenate(Y_train)
 Y_valid = np.concatenate(Y_valid)
 

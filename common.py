@@ -61,6 +61,7 @@ def standardize(A, stat):
 
     A = np.subtract(A, stat['mean'])
     A = np.divide(A, stat['stdev'])
+    A = A.astype(np.float32)
 
     return A
     # A = np.where(np.isfinite(std_out), std_out, np.zeros_like(std_out))
