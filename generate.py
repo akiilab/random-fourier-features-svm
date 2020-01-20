@@ -25,43 +25,51 @@ def generate_random_array(n):
         s = float(format(s + random.uniform(0, 1) * 0.9 + 0.1, '.2f'))
     return arr
 
+def mkdir(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
 def main():
     args = arg_parse()
 
-    if not os.path.exists(args.dir + "/data"):
-        os.makedirs(args.dir + "/data")
-    if not os.path.exists(args.dir + "/sample"):
-        os.makedirs(args.dir + "/sample")
-    if not os.path.exists(args.dir + "/target"):
-        os.makedirs(args.dir + "/target")
+    mkdir(args.dir + "/data")
+    mkdir(args.dir + "/target")
+    mkdir(args.dir + "/train_sample")
+    mkdir(args.dir + "/valid_sample")
 
-    fd = open(args.dir + "/data/" + args.output + ".csv","w+")
-    ft = open(args.dir + "/target/" + args.output + ".csv","w+")
-    fs = open(args.dir + "/sample/" + args.output + ".pkl","wb")
+    fd_data = open(args.dir + "/data/" + args.output + ".csv","w+")
+    fd_target = open(args.dir + "/target/" + args.output + ".csv","w+")
+    fd_train = open(args.dir + "/train_sample/" + args.output + ".pkl","wb")
+    fd_valid = open(args.dir + "/valid_sample/" + args.output + ".pkl","wb")
 
-    fd.write('"(%d %d)","overflow_H","overflow_V","rmgTrack_H","rmgTrack_V","totTrack_H","totTrack_V"\n' % (args.rows, args.cols))
-    ft.write('"(%d %d)","Short_VioNum"\n' % (args.rows, args.cols))
+    fd_data.write('"(%d %d)","overflow_H","overflow_V","rmgTrack_H","rmgTrack_V","totTrack_H","totTrack_V"\n' % (args.rows, args.cols))
+    fd_target.write('"(%d %d)","Short_VioNum"\n' % (args.rows, args.cols))
 
     rows = generate_random_array(args.rows)
     cols = generate_random_array(args.cols)
 
-    samples = []
+    train_samples = []
+    valid_samples = []
 
     for i, x in enumerate(rows):
         for j, y in enumerate(cols):
-            fd.write("\"{:.2f} {:.2f}\",{:.1f},{:.1f},{:.1f},{:.1f},{:.1f},{:.1f}\n".format(
+            fd_data.write("\"{:.2f} {:.2f}\",{:.1f},{:.1f},{:.1f},{:.1f},{:.1f},{:.1f}\n".format(
                 *[x, y] + [random.uniform(0, 10) for _ in range(6)]))
 
-            ft.write("\"%.2f %.2f\",%.1f\n" %
+            fd_target.write("\"%.2f %.2f\",%.1f\n" %
                     (x, y, random.getrandbits(1)))
 
-            if random.getrandbits(1):
-                samples.append((i, j))
+            rand = random.uniform(0, 1)
+            if rand > 0.8:
+                valid_samples.append((i, j))
+            else:
+                train_samples.append((i, j))
 
-    fd.close
-    ft.close
-    pickle.dump(samples, file=fs)
-    print("%dx%d data are generated and save at %s/{data,target,sample}/%s " %
+    fd_data.close
+    fd_target.close
+    pickle.dump(train_samples, file=fd_train)
+    pickle.dump(valid_samples, file=fd_valid)
+    print("%dx%d data are generated and save at %s/{data,target,train_sample,valid_sample}/%s " %
             (args.rows, args.cols, args.dir, args.output))
 
 if __name__ == '__main__':

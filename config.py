@@ -28,15 +28,16 @@ eval_data_dict = {
 
 train_dataset_dict = {
         'Short-TrainSet-UdrSamp-3_3_1p0_1p0_0p1': [
-            './cases/sample/3x5.pkl',
-            './cases/sample/5x10.pkl',
-            './cases/sample/100x200.pkl',
+            './cases/train_sample/3x5.pkl',
+            './cases/train_sample/5x10.pkl',
+            './cases/train_sample/100x200.pkl',
             ],
         }
 
 valid_dataset_dict = {
         'Short-ValidSet-NoUdrSamp': [
-            './cases/sample/3x4.pkl',
-            './cases/sample/10x20.pkl',
+            './cases/valid_sample/3x5.pkl',
+            './cases/valid_sample/5x10.pkl',
+            './cases/valid_sample/100x200.pkl',
             ],
         }
