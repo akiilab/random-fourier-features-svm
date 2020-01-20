@@ -25,8 +25,8 @@ def parse_csv(data_file):
 
     return {
             'data': arr,
-            'rows': np.array(rows, np.float),
-            'cols': np.array(cols, np.float),
+            'rows': np.array(rows, dtype=np.float32),
+            'cols': np.array(cols, dtype=np.float32),
             }
 
 # return the real path of file
