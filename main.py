@@ -23,11 +23,15 @@ import fio
 
 import preprocessing as pc
 from config import *
+# from utility import *
 
 import time
 import itertools
 import numpy as np
 import tensorflow as tf
+
+# import gc
+# import sys
 
 
 # ## 2. Loading Dataset: training set, validation set, test set
@@ -64,12 +68,19 @@ print("the first row target value:", Y_train_orig[0][0][0])
 
 def pipeline(X, Y, statistic, window_size=1, sample=None):
     
+    w = window_size
+    dx = X.shape[2]
+    dy = Y.shape[2]
+    
     X = pc.standardize(X, statistic)
     X = pc.expand(X, window_size)
     
     Y = pc.classify(Y)
     
-    if sample is not None:
+    if sample is None:
+        X = X.reshape((-1, w, w, dx))
+        Y = Y.reshape((-1, dy))
+    else:
         X = pc.undersample(X, sample)
         Y = pc.undersample(Y, sample)
     
@@ -81,19 +92,23 @@ def pipeline(X, Y, statistic, window_size=1, sample=None):
 
 def preprocessing(X_lists, Y_lists, statistic, window_size=1, samples=[]):
 
-    X = []
-    Y = []
+    w = window_size
+    d0, d1, dx = X_lists[0].shape
+    _,  _,  dy = Y_lists[0].shape
     
-    for x, y, sample in itertools.zip_longest(X_lists, Y_lists, samples):
-        x, y = pipeline(x, y, statistic, window_size, sample)
-        X.append(x)
-        Y.append(y)
-
-    X = np.concatenate(X, axis=0)
-    Y = np.concatenate(Y, axis=0)
+    X = np.empty((0,w,w,dx), dtype=np.float32)
+    Y = np.empty((0,dy), dtype=np.float32)
     
-    X = X.reshape((X.shape[0],-1))
-    Y = Y.reshape((Y.shape[0],-1))
+    for x, y, s in itertools.zip_longest(X_lists, Y_lists, samples):
+        print("data size:",   d0*d1, x.shape, 
+              "sample size:", d0*d1 if s is None else len(s))
+        x, y = pipeline(x, y, statistic, w, s)
+        print(y.shape, Y.shape)
+        X = np.append(X, x, axis=0)
+        Y = np.append(Y, y, axis=0)
+    
+    X = X.reshape((-1, w*w*dx))
+    Y = Y.reshape((-1, dy))
     
     return (X, Y)
     
@@ -144,13 +159,19 @@ estimator = tf.contrib.kernel_methods.KernelLinearClassifier(n_classes=2, optimi
 # In[ ]:
 
 
-batch = 2
-epoch = 1
+# batch = 2
+# epoch = 1
 steps = 2000
 
 x = {'data':X_train}
 y = Y_train
-train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=epoch)
+
+print(X_train.shape)
+print(Y_train.shape)
+
+# train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=epoch)
+train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
+
 
 # Train.
 start = time.time()
@@ -162,21 +183,22 @@ eval_metrics = estimator.evaluate(input_fn=train_input_fn, steps=1)
 print("train data evaluated matrics:", eval_metrics)
 
 
-# In[ ]:
-
-
-
-
-
 # ## 6. Evalutaing Data
 
 # In[ ]:
 
 
+
+
 x = {'data':X_valid}
 y = Y_valid
 
-eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=2, shuffle=False, num_epochs=1)
+print(X_valid.shape)
+print(Y_valid.shape)
+
+# eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=2, shuffle=False, num_epochs=1)
+eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
+
 
 # Evaluate and report metrics.
 eval_metrics = estimator.evaluate(input_fn=eval_input_fn, steps=1)
@@ -184,3 +206,32 @@ print("validation data evaluated matrics:", eval_metrics)
 
 
 # ## 7. Testing Data
+
+# In[ ]:
+
+
+import gc
+# del X_valid, Y_valid, X_train, Y_train
+gc.collect()
+
+X_test, Y_test = preprocessing(X_test_orig, Y_test_orig, stat, window_size=w)
+
+x = {'data':X_test}
+y = Y_test
+
+print(X_test.shape)
+print(Y_test.shape)
+
+# eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=2, shuffle=False, num_epochs=1)
+eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
+
+# Evaluate and report metrics.
+eval_metrics = estimator.evaluate(input_fn=eval_input_fn, steps=1)
+print("validation data evaluated matrics:", eval_metrics)
+
+
+# In[ ]:
+
+
+
+
