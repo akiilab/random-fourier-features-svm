@@ -8,9 +8,11 @@
 # 3. Preprocessing Data
 # 4. Building the Model
 # 5. Training Data
-# 6. Evalutaing Data
+# 6. Validation Data
 # 7. Testing Data
 # 
+# Time: O(n ^ 2) ~ O(n ^ 3)
+# Memory: O(n * w * w)
 
 # ## 1. Environment Setup: import required library
 # 
@@ -20,18 +22,17 @@
 
 
 import fio
-
 import preprocessing as pc
 from config import *
-# from utility import *
 
+# python std library
+import gc
 import time
 import itertools
+
+# install library
 import numpy as np
 import tensorflow as tf
-
-# import gc
-# import sys
 
 
 # ## 2. Loading Dataset: training set, validation set, test set
@@ -91,24 +92,23 @@ def pipeline(X, Y, statistic, window_size=1, sample=None):
 
 
 def preprocessing(X_lists, Y_lists, statistic, window_size=1, samples=[]):
-
-    w = window_size
-    d0, d1, dx = X_lists[0].shape
-    _,  _,  dy = Y_lists[0].shape
     
-    X = np.empty((0,w,w,dx), dtype=np.float32)
-    Y = np.empty((0,dy), dtype=np.float32)
+    X = []
+    Y = []
     
     for x, y, s in itertools.zip_longest(X_lists, Y_lists, samples):
+        d0, d1, _ = x.shape
         print("data size:",   d0*d1, x.shape, 
               "sample size:", d0*d1 if s is None else len(s))
-        x, y = pipeline(x, y, statistic, w, s)
-        print(y.shape, Y.shape)
-        X = np.append(X, x, axis=0)
-        Y = np.append(Y, y, axis=0)
+        x, y = pipeline(x, y, statistic, window_size, s)
+        X.append(x)
+        Y.append(y)
+        
+    X = np.concatenate(X, axis=0)
+    Y = np.concatenate(Y, axis=0)
     
-    X = X.reshape((-1, w*w*dx))
-    Y = Y.reshape((-1, dy))
+    X = X.reshape((X.shape[0],-1))
+    Y = Y.reshape((Y.shape[0],-1))
     
     return (X, Y)
     
@@ -119,16 +119,16 @@ def preprocessing(X_lists, Y_lists, statistic, window_size=1, samples=[]):
 
 w = 23 # window size
 stat = pc.get_feat_stat(X_train_orig)
-train_sample = fio.load_sample_file(train_dataset_dict['Short-TrainSet-UdrSamp-3_3_1p0_1p0_0p1'])
-valid_sample = fio.load_sample_file(valid_dataset_dict['Short-ValidSet-NoUdrSamp'])
 
+train_sample = fio.load_sample_file(train_dataset_dict['Short-TrainSet-UdrSamp-3_3_1p0_1p0_0p1'])
 X_train, Y_train = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample)
-X_valid, Y_valid = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=valid_sample)
 
 
 # ## 4. Building the Model
 # 
 # The model that we used is followed by the article: [Improving Linear Models Using Explicit Kernel Methods](https://github.com/Debian/tensorflow/blob/master/tensorflow/contrib/kernel_methods/g3doc/tutorial.md).
+# 
+# https://storage.googleapis.com/pub-tools-public-publication-data/pdf/18d86099a350df93f2bd88587c0ec6d118cc98e7.pdf
 
 # In[ ]:
 
@@ -159,8 +159,8 @@ estimator = tf.contrib.kernel_methods.KernelLinearClassifier(n_classes=2, optimi
 # In[ ]:
 
 
-# batch = 2
-# epoch = 1
+batch = 2
+epoch = 1
 steps = 2000
 
 x = {'data':X_train}
@@ -169,8 +169,8 @@ y = Y_train
 print(X_train.shape)
 print(Y_train.shape)
 
-# train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=epoch)
-train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
+train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=epoch)
+# train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
 
 
 # Train.
@@ -183,12 +183,20 @@ eval_metrics = estimator.evaluate(input_fn=train_input_fn, steps=1)
 print("train data evaluated matrics:", eval_metrics)
 
 
-# ## 6. Evalutaing Data
+# In[ ]:
+
+
+del X_train, Y_train
+gc.collect()
+
+
+# ## 6. Validation Data
 
 # In[ ]:
 
 
-
+valid_sample = fio.load_sample_file(valid_dataset_dict['Short-ValidSet-NoUdrSamp'])
+X_valid, Y_valid = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=valid_sample)
 
 x = {'data':X_valid}
 y = Y_valid
@@ -196,8 +204,8 @@ y = Y_valid
 print(X_valid.shape)
 print(Y_valid.shape)
 
-# eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=2, shuffle=False, num_epochs=1)
-eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
+eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=2, shuffle=False, num_epochs=1)
+# eval_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, shuffle=False)
 
 
 # Evaluate and report metrics.
@@ -205,14 +213,17 @@ eval_metrics = estimator.evaluate(input_fn=eval_input_fn, steps=1)
 print("validation data evaluated matrics:", eval_metrics)
 
 
+# In[ ]:
+
+
+del X_valid, Y_valid
+gc.collect()
+
+
 # ## 7. Testing Data
 
 # In[ ]:
 
-
-import gc
-# del X_valid, Y_valid, X_train, Y_train
-gc.collect()
 
 X_test, Y_test = preprocessing(X_test_orig, Y_test_orig, stat, window_size=w)
 
