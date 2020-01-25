@@ -41,3 +41,12 @@ valid_dataset_dict = {
             './cases/valid_sample/100x200.pkl',
             ],
         }
+
+X_train_dataset = train_data_dict['fcsv_phs']
+Y_train_dataset = train_data_dict['tcsv_phs']
+X_test_dataset  = eval_data_dict['fcsv_phs']
+Y_test_dataset  = eval_data_dict['tcsv_phs']
+
+train_sample_dataset = train_dataset_dict['Short-TrainSet-UdrSamp-3_3_1p0_1p0_0p1']
+valid_sample_dataset = valid_dataset_dict['Short-ValidSet-NoUdrSamp']
+
