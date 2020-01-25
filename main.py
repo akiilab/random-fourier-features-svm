@@ -27,7 +27,6 @@ import utility
 # python std library
 import gc
 import time
-import itertools
 
 # install library
 import numpy as np
