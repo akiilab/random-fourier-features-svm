@@ -1,8 +1,17 @@
 
 # SVM Kernel Approximation
 
-- Python 3.7.4
-- TensorFlow 1.14.0
+- Python 3.5
+- TensorFlow 1.4.1
+
+## Install
+
+[Tensorflow 1.4 Doc](https://github.com/tensorflow/docs/blob/r1.4/site/en/install/install_mac.md#installing-with-anaconda)
+
+```shell
+export TF_BINARY_URL=https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-1.4.1-py3-none-any.whl
+pip install --ignore-installed --upgrade $TF_BINARY_URL
+```
 
 ## Generate test cases
 
