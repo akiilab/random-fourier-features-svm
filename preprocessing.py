@@ -15,6 +15,9 @@
 # In[ ]:
 
 
+import utility
+
+# install library
 import numpy as np
 
 
@@ -241,6 +244,8 @@ if __name__ == "__main__":
 
 
 # ## 4. Piping Preprocessing Data
+
+# ### 4.1 Single Pipeline
 # 
 # Currently, it's a little bit complicated to piping the data, so we just iterated all preprocessing data functions instead.
 # 
@@ -256,7 +261,6 @@ if __name__ == "__main__":
 # 
 # - X: numpy array with shape (-1, window_size * window_size * 6)
 # - Y: numpy array with shape (-1, 1)
-# 
 
 # In[ ]:
 
@@ -288,7 +292,7 @@ def pipeline(X, Y, statistic, window_size=1, sample=None):
 if __name__ == "__main__":
     X = np.arange(2*3*6).reshape((2,3,6))
     Y = np.arange(2*3*1).reshape((2,3,1))
-    stat = get_feat_stat([A])
+    stat = get_feat_stat([X])
     w = 5
     s = np.array([[0,1], [2,1]])
 
@@ -302,6 +306,85 @@ if __name__ == "__main__":
     print("after preprocessing:")
     print("the shape of X:", X.shape)
     print("the shape of Y:", Y.shape)
+
+
+# ### 4.2 Iterative All Pipeline
+# 
+# The different between the 4.1 and 4.2 is the type of input data. The type of 4.1 input data is numpy array and the type of 4.2 input data is the list of numpy array.
+# 
+# **Args:**
+# 
+# - X: the list of numpy array. reference 4.1
+# - Y: the list of numpy array. reference 4.1
+# - statistic: dictionary with keys "mean" and "stdev" used to standardize the data
+# - window_size: the size of window
+# - sample: the list of sample data. reference 4.1
+# - callback: the callback function you want to execute. It will give you the data X and Y after processing function 4.1.
+# 
+# **Returns:**
+# 
+# None
+
+# In[ ]:
+
+
+def iterative_all(X_lists, Y_lists, statistic, window_size=1, samples=[], callback=None):
+    
+    if len(X_lists) != len(Y_lists):
+        raise Exception('the length of X lists ({}) and Y lists ({}) are not the same'.format(len(X_lists), len(Y_lists)))
+    
+    if callback is None:
+        raise Exception('iterative_all callback is NoneType')
+
+    iters = zip(X_lists, Y_lists, samples)
+    if len(X_lists) > len(samples):
+        iters = itertools.zip_longest(X_lists, Y_lists, samples)
+    
+    w = window_size
+
+    for x, y, s in iters:
+        
+        # show progressing information.
+        d0, d1, dx = x.shape # dim
+        s0 = d0*d1 if s is None else len(s) # sample len
+        print("data size:", d0*d1, x.shape, "-->", (s0, w*w*dx), end=' ')
+        
+        # run.
+        x, y = pipeline(x, y, statistic, window_size=w, sample=s)
+    
+        print(utility.sizeof_fmt(x.nbytes), utility.sizeof_fmt(y.nbytes))
+
+        callback(x, y)
+
+
+# In[ ]:
+
+
+if __name__ == "__main__":
+    X1 = np.arange(2*3*6).reshape((2,3,6))
+    Y1 = np.arange(2*3*1).reshape((2,3,1))
+    
+    X2 = np.arange(3*4*6).reshape((3,4,6))
+    Y2 = np.arange(3*4*1).reshape((3,4,1))
+    
+    X_lists = [X1, X2]
+    Y_lists = [Y1, Y2]
+    stat = get_feat_stat([X1, X2])
+    w = 5
+    
+    s = [np.array([[0,1], [2,1]]), np.array([[1,2], [3,2]])]
+
+    def _callback(X, Y):
+        print("callback X shape:", X.shape)
+        print("callback Y shape:", Y.shape)
+    
+    print("iterative all preprocessing:")
+    print("the shape of X:", X1.shape, X2.shape)
+    print("the shape of Y:", Y1.shape, Y2.shape)
+    print("statistic:", stat)
+    print("window size:", w)
+    print("the size of sample:", len(np.concatenate(s, axis=0)))
+    iterative_all(X_lists, Y_lists, stat, window_size=w, samples=s, callback=_callback)
 
 
 # In[ ]:
