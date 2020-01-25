@@ -6,9 +6,7 @@
 # 1. Environment Setup: import required libraries
 # 2. Calculating Features Statistic Data
 # 3. Preprocessing Data
-# 4. Building the Model
-# 5. Training Data
-# 6. Evalutaing Data
+# 4. Piping Preprocessing Data
 # 
 
 # ## 1. Environment Setup: import required library
@@ -80,8 +78,8 @@ if __name__ == "__main__":
 
 
 def standardize(A, stat):
-#     if isinstance(A, list):
-#         return [ standardize(a, stat) for a in A ]
+    # if isinstance(A, list):
+    #     return [ standardize(a, stat) for a in A ]
 
     A = np.subtract(A, stat['mean'])
     A = np.divide(A, stat['stdev'])
@@ -117,6 +115,16 @@ if __name__ == "__main__":
 # A = strided(A, shape=(5,3,5,5,6), strides=(672,96,672,96,16))
 # A = A.reshape((5,3,150))
 # ```
+# 
+# **Args:**
+# 
+# - A: numpy array with shape (-1, -1, 6)
+# - window_size: the size of window
+# 
+# **Returns:**
+# 
+# - A: numpy array with shape (-1, -1, window_size, window_size, 6)
+# 
 
 # In[ ]:
 
@@ -125,8 +133,8 @@ def expand(A, window_size):
     if not window_size & 0x1:
         raise Exception('need odd value on padding')
 
-#     if isinstance(A, list):
-#         return [ expand(a, window_size) for a in A ]
+    # if isinstance(A, list):
+    #     return [ expand(a, window_size) for a in A ]
 
     n = window_size # the height and width of the window
     p = window_size >> 1 # the padding size
@@ -158,14 +166,22 @@ if __name__ == "__main__":
 # 
 # Because of the large data, we need to undersample the data.
 # 
+# **Args:**
+# 
+# - A: numpy array with two or more dimension.
+# - index: the sample indices of double array
+# 
+# **Returns:**
+# 
+# - A: one dimension less than the input numpy array.
 
 # In[ ]:
 
 
-def undersample(arr, idx):
-    if isinstance(arr, list):
-        return [undersample(f, i) for f, i in zip(arr, idx)]
-    return arr[idx[:,1],idx[:,0]]
+def undersample(A, index):
+    # if isinstance(A, list):
+    #     return [undersample(a, i) for a, i in zip(A, index)]
+    return A[index[:,1],index[:,0]]
 
 
 # In[ ]:
@@ -185,8 +201,17 @@ if __name__ == "__main__":
 # 
 # The target will be classified into two categories. 
 # 
-# - the target value is zero 
-# - the target vlaue is not zero
+# convert target value
+# - if zero => 0
+# - else => 1
+# 
+# **Args:**
+# 
+# - A: numpy array with shape (-1, 1).
+# 
+# **Returns:**
+# 
+# - A: numpy array with shape (-1, 1).
 
 # In[ ]:
 
@@ -194,7 +219,10 @@ if __name__ == "__main__":
 def classify(A):
     if isinstance(A, list):
         return [ classify(a) for a in A ]
-
+    
+    # zero => 0
+    # else => 1
+    
     A = A != 0
     A = A.astype(int)
 
@@ -210,6 +238,70 @@ if __name__ == "__main__":
     print("before classification:\n", A)
     A = classify(A)
     print("after classification:\n", A)
+
+
+# ## 4. Piping Preprocessing Data
+# 
+# Currently, it's a little bit complicated to piping the data, so we just iterated all preprocessing data functions instead.
+# 
+# **Args:**
+# 
+# - X: numpy array with shape (-1, -1, 6)
+# - Y: numpy array with shape (-1, 1)
+# - statistic: dictionary with keys "mean" and "stdev" used to standardize the data
+# - window_size: the size of window
+# - sample: the sample indices of double array
+# 
+# **Returns:**
+# 
+# - X: numpy array with shape (-1, window_size * window_size * 6)
+# - Y: numpy array with shape (-1, 1)
+# 
+
+# In[ ]:
+
+
+def pipeline(X, Y, statistic, window_size=1, sample=None):
+    
+    w = window_size
+    dx = X.shape[2]
+    dy = Y.shape[2]
+    
+    X = standardize(X, statistic)
+    X = expand(X, window_size)
+    
+    Y = classify(Y)
+    
+    if sample is not None:
+        X = undersample(X, sample)
+        Y = undersample(Y, sample)
+        
+    X = X.reshape((-1, w*w*dx))
+    Y = Y.reshape((-1, dy))
+    
+    return (X, Y)
+
+
+# In[ ]:
+
+
+if __name__ == "__main__":
+    X = np.arange(2*3*6).reshape((2,3,6))
+    Y = np.arange(2*3*1).reshape((2,3,1))
+    stat = get_feat_stat([A])
+    w = 5
+    s = np.array([[0,1], [2,1]])
+
+    print("before preprocessing:")
+    print("the shape of X:", X.shape)
+    print("the shape of Y:", Y.shape)
+    print("statistic:", stat)
+    print("window size:", w)
+    print("the size of sample:", len(s))
+    X, Y = pipeline(X, Y, stat, window_size=w, sample=s)
+    print("after preprocessing:")
+    print("the shape of X:", X.shape)
+    print("the shape of Y:", Y.shape)
 
 
 # In[ ]:
