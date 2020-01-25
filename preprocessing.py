@@ -17,6 +17,9 @@
 
 import utility
 
+# python std library
+import itertools
+
 # install library
 import numpy as np
 
