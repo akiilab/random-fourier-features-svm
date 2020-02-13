@@ -46,7 +46,7 @@ def load_file(data_file):
         return [load_file(f) for f in data_file]
 
     data_file = abspath(data_file)
-    cache_file = os.path.join(os.environ['ROOT'], "cache/%s.npz" % md5(data_file))
+    cache_file = os.path.join(os.environ['ROOT'], "cache/dataset/%s.npz" % md5(data_file))
 
     if not os.path.exists(os.path.dirname(cache_file)):
         os.makedirs(os.path.dirname(cache_file))

@@ -27,6 +27,10 @@ import utility
 # python std library
 import gc
 import time
+import logging
+import functools
+import collections
+from multiprocessing.pool import ThreadPool
 
 # install library
 import numpy as np
@@ -41,15 +45,18 @@ import tensorflow as tf
 # In[ ]:
 
 
-X_train_orig = fio.load_file(X_train_dataset)
-Y_train_orig = fio.load_file(Y_train_dataset)
-X_test_orig = fio.load_file(X_test_dataset)
-Y_test_orig = fio.load_file(Y_test_dataset)
+if __name__ == "__main__":
+    X_train_orig = fio.load_file(X_train_dataset)
+    Y_train_orig = fio.load_file(Y_train_dataset)
+    X_test_orig = fio.load_file(X_test_dataset)
+    Y_test_orig = fio.load_file(Y_test_dataset)
+    train_sample = fio.load_sample_file(train_sample_dataset)
+    valid_sample = fio.load_sample_file(valid_sample_dataset)
 
-print("the length of training set:", len(X_train_orig))
-print("the length of testing set:", len(X_test_orig))
-print("the first row training data:", X_train_orig[0][0][0])
-print("the first row target value:", Y_train_orig[0][0][0])
+    print("the length of training set:", len(X_train_orig))
+    print("the length of testing set:", len(X_test_orig))
+    print("the first row training data:", X_train_orig[0][0][0])
+    print("the first row target value:", Y_train_orig[0][0][0])
 
 
 # ## 3. Preprocessing Data
@@ -92,48 +99,62 @@ def preprocessing(X_lists, Y_lists, statistic, window_size=1, samples=[]):
 # In[ ]:
 
 
-w = 23 # window size
-stat = pc.get_feat_stat(X_train_orig)
+if __name__ == "__main__":
+    w = 23 # window size
+    stat = pc.get_feat_stat(X_train_orig)
 
-train_sample = fio.load_sample_file(train_sample_dataset)
-X_train, Y_train = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample)
+    X_train, Y_train = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample)
 
 
 # ## 4. Building the Model
 # 
 # The model that we used is followed by the article: [Improving Linear Models Using Explicit Kernel Methods](https://github.com/Debian/tensorflow/blob/master/tensorflow/contrib/kernel_methods/g3doc/tutorial.md).
 # 
-# https://storage.googleapis.com/pub-tools-public-publication-data/pdf/18d86099a350df93f2bd88587c0ec6d118cc98e7.pdf
+# [TensorFlow Estimators: Managing Simplicity vs. Flexibility in
+# High-Level Machine Learning Frameworks](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/18d86099a350df93f2bd88587c0ec6d118cc98e7.pdf)
+# 
+# Optimizer
+# 
+# - [Ftrl Optimizer](https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/FtrlOptimizer)
+# - [Adam Optimizer](https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/AdamOptimizer)
 
 # In[ ]:
 
 
-def create_model(dim_in, dim_out, stddev=5.0, learning_rate=0.003, l2_regularization_strength=0.006):
+def create_model(learning_rate, dim_in, dim_out, stddev, model_dir=None):
     
-    optimizer = tf.train.FtrlOptimizer(learning_rate=learning_rate, l2_regularization_strength=l2_regularization_strength)
+    kernel_mapper = tf.contrib.kernel_methods.RandomFourierFeatureMapper(dim_in, dim_out, stddev, name='rffm')
     
+    optimizer = tf.train.AdamOptimizer(learning_rate)
     image_column = tf.contrib.layers.real_valued_column('data', dimension=dim_in)
-    kernel_mapper = tf.contrib.kernel_methods.RandomFourierFeatureMapper(input_dim=dim_in, output_dim=dim_out, stddev=stddev, name='rffm')
 
-    estimator = tf.contrib.kernel_methods.KernelLinearClassifier(n_classes=2, optimizer=optimizer, kernel_mappers={image_column: [kernel_mapper]})
+    estimator = tf.contrib.kernel_methods.KernelLinearClassifier(
+        feature_columns=[image_column], 
+        n_classes=2, 
+        model_dir=model_dir,
+        optimizer=optimizer, 
+        kernel_mappers={image_column: [kernel_mapper]})
 
     return estimator
     
     # For Example: Linear Model without optimizer
     # image_column = tf.contrib.layers.real_valued_column('data', dimension=784)
-    # estimator = tf.contrib.learn.LinearClassifier(feature_columns=[image_column], n_classes=2)
+    # estimator = tf.contrib.learn.LinearClassifier(n_classes=2, optimizer=optimizer, feature_columns=[image_column])
 
 
 # In[ ]:
 
 
-dim_in  = w * w * 6
-dim_out = w * w * 6 * 10
-stddev  = 5.0
-learning_rate = 0.003
-l2_regularization_strength = 0.006
+if __name__ == "__main__":
+    # Adam Optimizer
+    learning_rate = 0.001
 
-estimator = create_model(dim_in, dim_out, stddev, learning_rate, l2_regularization_strength)
+    # RFFM
+    input_dim = 23 * 23 * 6
+    output_dim = 23 * 23 * 6 * 10
+    stddev = 1.0
+
+    estimator = create_model(learning_rate, input_dim, output_dim, stddev)
 
 
 # ## 5. Training Data
@@ -142,10 +163,12 @@ estimator = create_model(dim_in, dim_out, stddev, learning_rate, l2_regularizati
 # In[ ]:
 
 
-def train_model(estimator, X, Y, batch_size=128, epoch=1):
+def train_model(estimator, X, Y, batch=128, epoch=1):
     print("training data shape:", X.shape, Y.shape)
     print("training data memory:", utility.sizeof_fmt(X.nbytes), utility.sizeof_fmt(Y.nbytes))
-
+    print("batch:", batch)
+    print("epoch:", epoch)
+    
     x = {'data':X}
     y = Y
     train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=True, num_epochs=epoch)
@@ -160,10 +183,11 @@ def train_model(estimator, X, Y, batch_size=128, epoch=1):
 # In[ ]:
 
 
-batch = 128
-epoch = 1
-
-train_model(estimator, X_train, Y_train, batch, epoch)
+if __name__ == "__main__":
+    batch = 2048
+    epoch = 2
+    
+    train_model(estimator, X_train, Y_train, batch, epoch)
 
 
 # ## 6. Validating Data
@@ -179,10 +203,21 @@ train_model(estimator, X_train, Y_train, batch, epoch)
 # 
 # true false positive negative
 # 
-# https://developers.google.com/machine-learning/crash-course/classification/true-false-positive-negative
-# 
+# - [Classification: True vs. False and Positive vs. Negative](https://developers.google.com/machine-learning/crash-course/classification/true-false-positive-negative)
+# - [如何辨別機器學習模型的好壞？秒懂Confusion Matrix](https://www.ycc.idv.tw/confusion-matrix.html)
 # 
 # https://ai.stackexchange.com/questions/6383/meaning-of-evaluation-metrics-in-tensorflow
+# 
+# 
+# 
+# ```python
+# x = {'data': X}
+# y = Y
+# 
+# input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=1)
+# 
+# metric = estimator.evaluate(input_fn=input_fn)
+# ```
 # 
 # - loss: The current value of the loss. Either the sum of the losses, or the loss of the last batch.
 # - global_step: Number of iterations.
@@ -199,26 +234,48 @@ def evaluate_model(estimator, X, Y, statistic, batch=None):
         batch = X.shape[0]
     
     x = {'data': X}
-    y = Y
+    y = Y.reshape((X.shape[0]))
     
-    input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=1)
-    
-    metric = estimator.evaluate(input_fn=input_fn)
-    metric['count'] = X.shape[0]
-    
-    return metric
+    input_fn = tf.estimator.inputs.numpy_input_fn(x, batch_size=batch, shuffle=False, num_epochs=1)
 
-def evaluate_models(estimator, X_lists, Y_lists, statistic, window_size=1, samples=[], batch=None):
+    start = time.time()
+    result = estimator.predict_classes(input_fn=input_fn)
+    result = np.array(list(enumerate(result)))
+    result = result[:,1]
+    result = result.astype(bool)
+    end = time.time()
+    print('Elapsed time: {} seconds'.format(end - start))
+    
+    return {
+        'tp': np.sum((result == True ) & (y == True )), # true positive
+        'fp': np.sum((result == True ) & (y == False)), # false positive
+        'fn': np.sum((result == False) & (y == True )), # false negative
+        'tn': np.sum((result == False) & (y == False)), # true negative
+    }
+
+def evaluate_models(estimator, X_lists, Y_lists, statistic, window_size=1, samples=[], batch=None, num_thread=1):
 
     metrics = []
+    threads = []
+    pool = ThreadPool(processes=num_thread)
+
     def _callback(X, Y):
-        metric = evaluate_model(estimator, X, Y, statistic, batch=batch)
-        metrics.append(metric)
-        print("evaluated metrics:", metric)
+        if num_thread == 1:
+            metric = evaluate_model(estimator,  X, Y, statistic, batch)
+            metrics.append(metric)
+            print("evaluated metrics:", metric)
+        else:
+            async_result = pool.apply_async(evaluate_model, (estimator,  X, Y, statistic, batch))
+            threads.append(async_result)
 
     pc.iterative_all(X_lists, Y_lists, statistic, window_size=window_size, samples=samples, callback=_callback)
-
-    return metrics
+    
+    for i in threads:
+        metrics.append(i.get())
+    
+    metrics = functools.reduce(lambda a, b : collections.Counter(a) + collections.Counter(b), metrics)
+    
+    return dict(metrics)
 
 
 # ### 6.1 Evaluating Training Data
@@ -226,14 +283,23 @@ def evaluate_models(estimator, X_lists, Y_lists, statistic, window_size=1, sampl
 # In[ ]:
 
 
-metrics = evaluate_model(estimator, X_train, Y_train, stat, batch=128)
-print("training metrics (grouped):", metrics)
-metrics = evaluate_models(estimator, X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample, batch=128)
-print("training metrics:", metrics)
+if __name__ == "__main__":
+    start = time.time()
+    metrics = evaluate_model(estimator, X_train, Y_train, stat, batch=batch)
+    end = time.time()
+    print('Elapsed time: {} seconds'.format(end - start))
+    print("training metrics (grouped):", metrics)
 
-# metric = evaluate_model(estimator, X_train, Y_train, stat, batch=128)
-# del X_train, Y_train
-# gc.collect()
+
+# In[ ]:
+
+
+if __name__ == "__main__":
+    start = time.time()
+    metrics = evaluate_models(estimator, X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample, batch=batch)
+    end = time.time()
+    print('Elapsed time: {} seconds'.format(end - start))
+    print("training metrics:", metrics)
 
 
 # ### 6.2 Evaluating Validation Data
@@ -241,18 +307,9 @@ print("training metrics:", metrics)
 # In[ ]:
 
 
-valid_sample = fio.load_sample_file(valid_sample_dataset)
-metrics = evaluate_models(estimator, X_train_orig, Y_train_orig, stat, window_size=w, samples=valid_sample, batch=128)
-print("validation metrics:", metrics)
-
-
-# In[ ]:
-
-
-# X_valid, Y_valid = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=valid_sample)
-# metric = evaluate_model(estimator, X_valid, Y_valid, stat, batch=128)
-# del X_valid, Y_valid
-# gc.collect()
+if __name__ == "__main__":
+    metrics = evaluate_models(estimator, X_train_orig, Y_train_orig, stat, window_size=w, samples=valid_sample, batch=128)
+    print("validation metrics:", metrics)
 
 
 # ### 6.3 Get The Prediction Data
@@ -260,10 +317,13 @@ print("validation metrics:", metrics)
 # ```python
 # x = {'data': X_train.astype(np.float32)}
 # y = Y_train
+# batch = 128
 # 
-# input_fn = tf.estimator.inputs.numpy_input_fn(x, batch_size=batch, shuffle=False)
-# metric = estimator.predict(input_fn=input_fn)
-# print(metric['classes'])
+# input_fn = tf.estimator.inputs.numpy_input_fn(x, batch_size=batch, shuffle=False, num_epochs=1)
+# metric = estimator.predict_classes(input_fn=input_fn)
+# 
+# for i, p in enumerate(metric):
+#     print(p, y[i][0])
 # ```
 # 
 # **Args:**
@@ -279,12 +339,7 @@ print("validation metrics:", metrics)
 # In[ ]:
 
 
-metrics = evaluate_models(estimator, X_test_orig, Y_test_orig, stat, window_size=w, batch=128)
-print("testing metrics:", metrics)
-
-
-# In[ ]:
-
-
-
+if __name__ == "__main__":
+    metrics = evaluate_models(estimator, X_test_orig, Y_test_orig, stat, window_size=w, batch=batch)
+    print("testing metrics:", metrics)
 

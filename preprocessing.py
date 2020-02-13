@@ -230,7 +230,6 @@ def classify(A):
     # else => 1
     
     A = A != 0
-    A = A.astype(int)
 
     return A
 
