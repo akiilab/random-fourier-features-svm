@@ -1,345 +1,192 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # SVM Kernel Approximation
-# 
-# 1. Environment Setup: import required libraries
-# 2. Loading Dataset: training set, validation set, test set
-# 3. Preprocessing Data
-# 4. Building the Model
-# 5. Training Data
-# 6. Validating Data
-# 7. Testing Data
-# 
-
-# ## 1. Environment Setup: import required library
-# 
-# We include the required libraries that will be used in the next parts. The **time**, **numpy**, and **tensorflow** are common libraries in machine learning. The **fio**, which is "file input output" used to load data and **config**, which is "configuration file" used to config the path of the dataset files are written by myself. Modify it when you need it.
+# ## Import Library
 
 # In[ ]:
 
 
-import fio
-import preprocessing as pc
-from config import *
-import utility
-
-# python std library
-import gc
+import svm
 import time
-import logging
-import functools
-import collections
-from multiprocessing.pool import ThreadPool
-
-# install library
-import numpy as np
-import tensorflow as tf
 
 
-# ## 2. Loading Dataset: training set, validation set, test set
+# ## Experimental Functions
 # 
-# Loading the training set, validation set, and test set that was defined in **config.py** file. Sample files consisting of indices of data will be used to undersample the data.
+# 1. Hooks
+#     - get metrics at step n
+#     - CheckpointSaverHook
+#     - CheckpointHook
+# 2. RunConfig
 # 
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    X_train_orig = fio.load_file(X_train_dataset)
-    Y_train_orig = fio.load_file(Y_train_dataset)
-    X_test_orig = fio.load_file(X_test_dataset)
-    Y_test_orig = fio.load_file(Y_test_dataset)
-    train_sample = fio.load_sample_file(train_sample_dataset)
-    valid_sample = fio.load_sample_file(valid_sample_dataset)
-
-    print("the length of training set:", len(X_train_orig))
-    print("the length of testing set:", len(X_test_orig))
-    print("the first row training data:", X_train_orig[0][0][0])
-    print("the first row target value:", Y_train_orig[0][0][0])
-
-
-# ## 3. Preprocessing Data
+# **Hooks**
 # 
-# There are two parts of the data that must be processed:
+# - [An Advanced Example of Tensorflow Estimators Part (3/3)](https://medium.com/@tijmenlv/an-advanced-example-of-tensorflow-estimators-part-3-3-8c2efe8ff6fa)
+# - [Tensorflow Github: tf.train.SessionRunContext](https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/python/training/session_run_hook.py#L216)
+# - [Tensorflow Doc: tf.train.SessionRunContext](https://github.com/tensorflow/docs/blob/r1.4/site/en/api_docs/api_docs/python/tf/train/SessionRunContext.md)
+# - [Tensorflow Github: tf.train.SecondOrStepTimer](https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/python/training/basic_session_run_hooks.py#L88)
 # 
-# - the input data represented by the prefix "**X**" on variables
-# - the target data represented by the prefix "**Y**" on variables
-# 
-# Check out the file **preprocess.py** for more details.
-# 
-
-# In[ ]:
-
-
-def preprocessing(X_lists, Y_lists, statistic, window_size=1, samples=[]):
-    
-    X = []
-    Y = []
-    
-    def _callback(x, y):
-        X.append(x)
-        Y.append(y)
-        
-    pc.iterative_all(X_lists, Y_lists, statistic, window_size=window_size, samples=samples, callback=_callback)
-        
-    X = np.concatenate(X, axis=0)
-    Y = np.concatenate(Y, axis=0)
-    
-    X = X.reshape((X.shape[0],-1))
-    Y = Y.reshape((Y.shape[0],-1))
-    
-    print(X.shape, utility.sizeof_fmt(X.nbytes))
-    print(Y.shape, utility.sizeof_fmt(Y.nbytes))
-    
-    return (X, Y)
-    
-
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    w = 23 # window size
-    stat = pc.get_feat_stat(X_train_orig)
-
-    X_train, Y_train = preprocessing(X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample)
-
-
-# ## 4. Building the Model
-# 
-# The model that we used is followed by the article: [Improving Linear Models Using Explicit Kernel Methods](https://github.com/Debian/tensorflow/blob/master/tensorflow/contrib/kernel_methods/g3doc/tutorial.md).
-# 
-# [TensorFlow Estimators: Managing Simplicity vs. Flexibility in
-# High-Level Machine Learning Frameworks](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/18d86099a350df93f2bd88587c0ec6d118cc98e7.pdf)
-# 
-# Optimizer
-# 
-# - [Ftrl Optimizer](https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/FtrlOptimizer)
-# - [Adam Optimizer](https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/AdamOptimizer)
-
-# In[ ]:
-
-
-def create_model(learning_rate, dim_in, dim_out, stddev, model_dir=None):
-    
-    kernel_mapper = tf.contrib.kernel_methods.RandomFourierFeatureMapper(dim_in, dim_out, stddev, name='rffm')
-    
-    optimizer = tf.train.AdamOptimizer(learning_rate)
-    image_column = tf.contrib.layers.real_valued_column('data', dimension=dim_in)
-
-    estimator = tf.contrib.kernel_methods.KernelLinearClassifier(
-        feature_columns=[image_column], 
-        n_classes=2, 
-        model_dir=model_dir,
-        optimizer=optimizer, 
-        kernel_mappers={image_column: [kernel_mapper]})
-
-    return estimator
-    
-    # For Example: Linear Model without optimizer
-    # image_column = tf.contrib.layers.real_valued_column('data', dimension=784)
-    # estimator = tf.contrib.learn.LinearClassifier(n_classes=2, optimizer=optimizer, feature_columns=[image_column])
-
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    # Adam Optimizer
-    learning_rate = 0.001
-
-    # RFFM
-    input_dim = 23 * 23 * 6
-    output_dim = 23 * 23 * 6 * 10
-    stddev = 1.0
-
-    estimator = create_model(learning_rate, input_dim, output_dim, stddev)
-
-
-# ## 5. Training Data
-# 
-
-# In[ ]:
-
-
-def train_model(estimator, X, Y, batch=128, epoch=1):
-    print("training data shape:", X.shape, Y.shape)
-    print("training data memory:", utility.sizeof_fmt(X.nbytes), utility.sizeof_fmt(Y.nbytes))
-    print("batch:", batch)
-    print("epoch:", epoch)
-    
-    x = {'data':X}
-    y = Y
-    train_input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=True, num_epochs=epoch)
-    
-    start = time.time()
-    estimator.fit(input_fn=train_input_fn) # Train.
-    end = time.time()
-    print('Elapsed time: {} seconds'.format(end - start))
-    
-
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    batch = 2048
-    epoch = 2
-    
-    train_model(estimator, X_train, Y_train, batch, epoch)
-
-
-# ## 6. Validating Data
-# 
-# 1. Evaluating Training Data
-# 2. Evaluating Validation Data
-# 3. Get The Prediction Data
-# 
-# metrics
-# 
-# https://tensorflow.google.cn/versions/r1.15/api_docs/python/tf/keras/metrics
-# 
-# 
-# true false positive negative
-# 
-# - [Classification: True vs. False and Positive vs. Negative](https://developers.google.com/machine-learning/crash-course/classification/true-false-positive-negative)
-# - [如何辨別機器學習模型的好壞？秒懂Confusion Matrix](https://www.ycc.idv.tw/confusion-matrix.html)
-# 
-# https://ai.stackexchange.com/questions/6383/meaning-of-evaluation-metrics-in-tensorflow
-# 
-# 
+# **get metrics at step n**
 # 
 # ```python
-# x = {'data': X}
-# y = Y
+# metrics = {
+#     "tp": tf.contrib.learn.MetricSpec(metric_fn=tf.metrics.true_positives, prediction_key="classes"),
+#     "tn": tf.contrib.learn.MetricSpec(metric_fn=patch.metrics.true_negatives, prediction_key="classes"),
+#     "fp": tf.contrib.learn.MetricSpec(metric_fn=tf.metrics.false_positives, prediction_key="classes"),
+#     "fn": tf.contrib.learn.MetricSpec(metric_fn=tf.metrics.false_negatives, prediction_key="classes"),
+# }
 # 
-# input_fn = tf.estimator.inputs.numpy_input_fn(x, y, batch_size=batch, shuffle=False, num_epochs=1)
 # 
-# metric = estimator.evaluate(input_fn=input_fn)
+# monitors = [
+#    tf.contrib.learn.monitors.ValidationMonitor(input_fn=train_input_fn, every_n_steps=10, metrics=metrics)
+# ]
+#     
+# estimator.fit(input_fn=train_input_fn, monitors=monitors)
 # ```
 # 
-# - loss: The current value of the loss. Either the sum of the losses, or the loss of the last batch.
-# - global_step: Number of iterations.
-# - AUC or Area Under the (ROC) Curve is quite complicated, but tells you something about the true/false positive rate. In short: the AUC is equal to the probability that a classifier will rank a randomly chosen positive instance higher than a randomly chosen negative one.
-# - auc_precision_recall: Is the percentage of relevant intstances, among the retrieved instances, that have been retrieved over the total amount of relevant instances.
-# 
-
-# In[ ]:
-
-
-def evaluate_model(estimator, X, Y, statistic, batch=None):
-    
-    if batch == None:
-        batch = X.shape[0]
-    
-    x = {'data': X}
-    y = Y.reshape((X.shape[0]))
-    
-    input_fn = tf.estimator.inputs.numpy_input_fn(x, batch_size=batch, shuffle=False, num_epochs=1)
-
-    start = time.time()
-    result = estimator.predict_classes(input_fn=input_fn)
-    result = np.array(list(enumerate(result)))
-    result = result[:,1]
-    result = result.astype(bool)
-    end = time.time()
-    print('Elapsed time: {} seconds'.format(end - start))
-    
-    return {
-        'tp': np.sum((result == True ) & (y == True )), # true positive
-        'fp': np.sum((result == True ) & (y == False)), # false positive
-        'fn': np.sum((result == False) & (y == True )), # false negative
-        'tn': np.sum((result == False) & (y == False)), # true negative
-    }
-
-def evaluate_models(estimator, X_lists, Y_lists, statistic, window_size=1, samples=[], batch=None, num_thread=1):
-
-    metrics = []
-    threads = []
-    pool = ThreadPool(processes=num_thread)
-
-    def _callback(X, Y):
-        if num_thread == 1:
-            metric = evaluate_model(estimator,  X, Y, statistic, batch)
-            metrics.append(metric)
-            print("evaluated metrics:", metric)
-        else:
-            async_result = pool.apply_async(evaluate_model, (estimator,  X, Y, statistic, batch))
-            threads.append(async_result)
-
-    pc.iterative_all(X_lists, Y_lists, statistic, window_size=window_size, samples=samples, callback=_callback)
-    
-    for i in threads:
-        metrics.append(i.get())
-    
-    metrics = functools.reduce(lambda a, b : collections.Counter(a) + collections.Counter(b), metrics)
-    
-    return dict(metrics)
-
-
-# ### 6.1 Evaluating Training Data
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    start = time.time()
-    metrics = evaluate_model(estimator, X_train, Y_train, stat, batch=batch)
-    end = time.time()
-    print('Elapsed time: {} seconds'.format(end - start))
-    print("training metrics (grouped):", metrics)
-
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    start = time.time()
-    metrics = evaluate_models(estimator, X_train_orig, Y_train_orig, stat, window_size=w, samples=train_sample, batch=batch)
-    end = time.time()
-    print('Elapsed time: {} seconds'.format(end - start))
-    print("training metrics:", metrics)
-
-
-# ### 6.2 Evaluating Validation Data
-
-# In[ ]:
-
-
-if __name__ == "__main__":
-    metrics = evaluate_models(estimator, X_train_orig, Y_train_orig, stat, window_size=w, samples=valid_sample, batch=128)
-    print("validation metrics:", metrics)
-
-
-# ### 6.3 Get The Prediction Data
+# **CheckpointSaverHook**: save checkpoint to *checkpoint_dir* every n steps
+# **CheckpointHook**: save checkpoint to *checkpoint_dir* every n steps after save checkpoint every m steps
 # 
 # ```python
-# x = {'data': X_train.astype(np.float32)}
-# y = Y_train
-# batch = 128
+# class CheckpointHook(tf.train.CheckpointSaverHook):
+#     def __init__(self, checkpoint_dir,
+#             save_secs=None,
+#             save_steps=None,
+#             saver=None,
+#             checkpoint_basename='model.ckpt',
+#             scaffold=None,
+#             listeners=None,
+#             save_last_steps=None,
+#         ):
 # 
-# input_fn = tf.estimator.inputs.numpy_input_fn(x, batch_size=batch, shuffle=False, num_epochs=1)
-# metric = estimator.predict_classes(input_fn=input_fn)
-# 
-# for i, p in enumerate(metric):
-#     print(p, y[i][0])
+#         self.count = 0
+#         super().__init__(checkpoint_dir, save_secs, save_steps, saver, 
+#                          checkpoint_basename, scaffold, listeners)
+#         
+#     def before_run(self, run_context):
+#         if self.count > 25:
+#             self._timer._every_steps = 1
+#         self.count += 1
+#         return super().before_run(run_context)
+#     
+# estimator.fit(input_fn=train_input_fn, monitors=[CheckpointHook("/tmp/a", save_steps=10)])
 # ```
 # 
-# **Args:**
+# **RunConfig**
 # 
-# - input_fn: Input function. If set, `x` and 'batch_size' must be `None`.
+# - [Tensorflow Github: tf.estimator.RunConfig](https://github.com/tensorflow/tensorflow/blob/r1.4/tensorflow/python/estimator/run_config.py)
 # 
-# **Returns:**
+# ```python
+# # default configuration
+# config = tf.estimator.RunConfig(
+#     model_dir=None,
+#     tf_random_seed=None,
+#     save_summary_steps=100,
+#     save_checkpoints_steps=100,
+#     save_checkpoints_secs=600,
+#     session_config=None,
+#     keep_checkpoint_max=5,
+#     keep_checkpoint_every_n_hours=10000,
+#     log_step_count_steps=100,
+# )
 # 
-# A numpy array of predicted classes or regression values if the constructor's `model_fn` returns a `Tensor` for `predictions` or a `dict` of numpy arrays if `model_fn` returns a `dict`.
+# svm.create_linear_model(args.learning_rate, input_dim, model_dir=args.model_dir, config=config)
+# svm.create_rffm_model(args.learning_rate, input_dim, args.dimension, args.stddev, model_dir=args.model_dir, config=config)
+# ```
+# 
 
-# ## 7. Testing Data
+# In[ ]:
+
+
+def main(args):
+    
+    # Loading Dataset and Preprocessing Data
+    X_train, Y_train, X_test, Y_test, train_sample, valid_sample = svm.load(args.window_size)
+
+    # Build Input Fn
+    train_input_fn = svm.np_input_fn(X_train, 
+                                 Y_train, 
+                                 samples=train_sample, 
+                                 shuffle=True, 
+                                 window_size=args.window_size,
+                                 batch=args.batch,
+                                 epoch=args.epoch)
+
+    # Training Model
+    input_dim = args.window_size * args.window_size * 6
+    if args.model == "linear":
+        estimator = svm.create_linear_model(args.learning_rate, input_dim, model_dir=args.model_dir)
+    if args.model == "rffm":
+        estimator = svm.create_rffm_model(args.learning_rate, input_dim, args.dimension, args.stddev, model_dir=args.model_dir)
+        
+    start = time.time()
+    if args.train:
+        estimator.fit(input_fn=train_input_fn) # Train.
+    train_sec = time.time() - start
+    print('Training Elapsed time: {} seconds'.format(train_sec))
+    
+    # Evaluating Training Data
+    if not args.evaluate:
+        return
+    
+    start = time.time()
+    train_metrics = svm.evaluate_model(estimator, X_train, Y_train, samples=train_sample, window_size=args.window_size)
+    valid_metrics = svm.evaluate_model(estimator, X_train, Y_train, samples=valid_sample, window_size=args.window_size)
+    testing_metrics = svm.evaluate_model(estimator, X_test, Y_test, window_size=args.window_size)
+    eval_sec = time.time() - start
+    print('Evaluate Elapsed time: {} seconds'.format(eval_sec))
+    
+    print(train_metrics)
+    print(valid_metrics)
+    print(testing_metrics)
+    
+    global_step = estimator.get_variable_value("global_step")
+    result = "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %f %f %f\n" % (
+          train_metrics["tp"], train_metrics["fp"], train_metrics["fn"], train_metrics["tn"],
+          valid_metrics["tp"], valid_metrics["fp"], valid_metrics["fn"], valid_metrics["tn"],
+          testing_metrics["tp"], testing_metrics["fp"], testing_metrics["fn"], testing_metrics["tn"], 
+          global_step, args.epoch, args.batch, args.window_size, args.learning_rate, args.dimension, args.stddev,
+          train_sec, eval_sec, train_sec + eval_sec)
+    print(result)
+
+    f = open(args.output,"w+")
+    f.write(result)
+    f.close()
+
+
 
 # In[ ]:
 
 
 if __name__ == "__main__":
-    metrics = evaluate_models(estimator, X_test_orig, Y_test_orig, stat, window_size=w, batch=batch)
-    print("testing metrics:", metrics)
+    class Args:
+        # mode
+        train = True
+        evaluate = True
+        
+        # cache
+        model = "linear" # or "rffm"
+        model_dir = None
+        
+        # train
+        batch = 2048
+        epoch = 2
+        window_size = 23
+
+        # Optimizer
+        learning_rate = 0.001
+
+        # RFFM
+        dimension = 31740
+        stddev = 1.0
+
+        # Output
+        output = "a.out"
+
+    main(Args())
+
+
+# In[ ]:
+
+
+
 
