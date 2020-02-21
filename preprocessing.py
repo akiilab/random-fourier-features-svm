@@ -84,8 +84,8 @@ if __name__ == "__main__":
 
 
 def standardize(A, stat):
-    # if isinstance(A, list):
-    #     return [ standardize(a, stat) for a in A ]
+    if isinstance(A, list):
+        return [ standardize(a, stat) for a in A ]
 
     A = np.subtract(A, stat['mean'])
     A = np.divide(A, stat['stdev'])
@@ -139,17 +139,17 @@ def expand(A, window_size):
     if not window_size & 0x1:
         raise Exception('need odd value on padding')
 
-    # if isinstance(A, list):
-    #     return [ expand(a, window_size) for a in A ]
+    if isinstance(A, list):
+        return [ expand(a, window_size) for a in A ]
 
-    n = window_size # the height and width of the window
+    w = window_size # the height and width of the window
     p = window_size >> 1 # the padding size
 
     d0, d1, d2 = A.shape # dimansion 0, 1, 2
-    s0, s1, s2 = A.strides # stride 0, 1, 2
-
     A = np.pad(A, pad_width=((p,p),(p,p),(0,0)), mode='constant')
-    A = np.lib.stride_tricks.as_strided(A, shape=(d0,d1,n,n,d2), strides=(s0,s1,s0,s1,s2))
+    
+    s0, s1, s2 = A.strides # stride 0, 1, 2
+    A = np.lib.stride_tricks.as_strided(A, shape=(d0,d1,w,w,d2), strides=(s0,s1,s0,s1,s2))
 
     return A
 
@@ -160,12 +160,13 @@ def expand(A, window_size):
 if __name__ == "__main__":
     A = np.arange(5*3*6).reshape((5,3,6))
     window_size = 5
-
+    
+    print(A)
     print("window size:", window_size)
-    print("before expand:", A.shape, A.strides)
+    print("before expand:", A.shape, A.strides, np.sum(A))
     A = expand(A, window_size)
-    print("after expand:", A.shape, A.strides)
-    print(A[-1][-1][-1])
+    print("after expand:", A.shape, A.strides, np.sum(A))
+    print(A[0][0])
 
 
 # #### 3.1.3. Undersampling Data
@@ -185,9 +186,9 @@ if __name__ == "__main__":
 
 
 def undersample(A, index):
-    # if isinstance(A, list):
-    #     return [undersample(a, i) for a, i in zip(A, index)]
-    return A[index[:,1],index[:,0]]
+    if isinstance(A, list):
+        return [undersample(a, i) for a, i in zip(A, index)]
+    return A[index[:,0],index[:,1]]
 
 
 # In[ ]:
@@ -195,7 +196,7 @@ def undersample(A, index):
 
 if __name__ == "__main__":
     A = np.arange(2*3*5*5*6).reshape((2,3,5,5,6))
-    sample = np.array([[2,1],[0,1],[1,0]])
+    sample = np.array([[1,2],[0,1],[1,0]])
 
     print("the sample indices:\n", sample)
     print("before undersampling shape:", A.shape)
@@ -296,7 +297,7 @@ if __name__ == "__main__":
     Y = np.arange(2*3*1).reshape((2,3,1))
     stat = get_feat_stat([X])
     w = 5
-    s = np.array([[0,1], [2,1]])
+    s = np.array([[0,1], [1,2]])
 
     print("before preprocessing:")
     print("the shape of X:", X.shape)
@@ -374,7 +375,7 @@ if __name__ == "__main__":
     stat = get_feat_stat([X1, X2])
     w = 5
     
-    s = [np.array([[0,1], [2,1]]), np.array([[1,2], [3,2]])]
+    s = [np.array([[1,0], [1,2]]), np.array([[2,1], [2,3]])]
 
     def _callback(X, Y):
         print("callback X shape:", X.shape)
@@ -387,10 +388,4 @@ if __name__ == "__main__":
     print("window size:", w)
     print("the size of sample:", len(np.concatenate(s, axis=0)))
     iterative_all(X_lists, Y_lists, stat, window_size=w, samples=s, callback=_callback)
-
-
-# In[ ]:
-
-
-
 
