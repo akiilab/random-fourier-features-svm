@@ -63,6 +63,8 @@ def load_sample_file(data_file):
         return [load_sample_file(f) for f in data_file]
 
     arr = np.load(data_file, allow_pickle=True)
+    arr = np.array(arr)
+    arr[:,[0, 1]] = arr[:,[1, 0]]
 
-    return np.array(arr)
+    return arr
 
