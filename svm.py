@@ -180,15 +180,14 @@ if __name__ == "__main__":
 # In[ ]:
 
 
-def create_linear_model(learning_rate, dim_in, model_dir=None, config=None):
+def create_linear_model(learning_rate, dim_in, config=None):
     optimizer = tf.train.AdamOptimizer(learning_rate)
     image_column = tf.contrib.layers.real_valued_column('data', dimension=dim_in)
     
     estimator = tf.contrib.learn.LinearClassifier(
         feature_columns=[image_column],
         n_classes=2, 
-        model_dir=model_dir,
-        config=None,
+        config=config,
         optimizer=optimizer)
     tf.estimator.train_and_evaluate
     return estimator
@@ -219,7 +218,7 @@ if __name__ == "__main__":
 # In[ ]:
 
 
-def create_rffm_model(learning_rate, dim_in, dim_out, stddev, model_dir=None, config=None):
+def create_rffm_model(learning_rate, dim_in, dim_out, stddev, config=None):
     
     kernel_mapper = tf.contrib.kernel_methods.RandomFourierFeatureMapper(dim_in, dim_out, stddev, name='rffm')
     
@@ -229,8 +228,7 @@ def create_rffm_model(learning_rate, dim_in, dim_out, stddev, model_dir=None, co
     estimator = tf.contrib.kernel_methods.KernelLinearClassifier(
         feature_columns=[image_column], 
         n_classes=2, 
-        model_dir=model_dir,
-        config=None,
+        config=config,
         optimizer=optimizer, 
         kernel_mappers={image_column: [kernel_mapper]})
     

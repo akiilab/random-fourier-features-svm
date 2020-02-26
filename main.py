@@ -6,6 +6,7 @@
 # In[ ]:
 
 
+import tensorflow as tf
 import svm
 import time
 
@@ -89,10 +90,27 @@ import time
 #     log_step_count_steps=100,
 # )
 # 
-# svm.create_linear_model(args.learning_rate, input_dim, model_dir=args.model_dir, config=config)
-# svm.create_rffm_model(args.learning_rate, input_dim, args.dimension, args.stddev, model_dir=args.model_dir, config=config)
+# svm.create_linear_model(args.learning_rate, input_dim, config=config)
+# svm.create_rffm_model(args.learning_rate, input_dim, args.dimension, args.stddev, config=config)
 # ```
 # 
+
+# In[ ]:
+
+
+def config(args):
+    return tf.estimator.RunConfig(
+        model_dir=args.model_dir,
+        tf_random_seed=None,
+        save_summary_steps=100,
+        save_checkpoints_steps=None,
+        save_checkpoints_secs=600,
+        session_config=None,
+        keep_checkpoint_max=args.max_checkpoint,
+        keep_checkpoint_every_n_hours=10000,
+        log_step_count_steps=100,
+    )
+
 
 # In[ ]:
 
@@ -114,9 +132,9 @@ def main(args):
     # Training Model
     input_dim = args.window_size * args.window_size * 6
     if args.model == "linear":
-        estimator = svm.create_linear_model(args.learning_rate, input_dim, model_dir=args.model_dir)
+        estimator = svm.create_linear_model(args.learning_rate, input_dim, config=config(args))
     if args.model == "rffm":
-        estimator = svm.create_rffm_model(args.learning_rate, input_dim, args.dimension, args.stddev, model_dir=args.model_dir)
+        estimator = svm.create_rffm_model(args.learning_rate, input_dim, args.dimension, args.stddev, config=config(args))
         
     start = time.time()
     if args.train:
@@ -148,10 +166,9 @@ def main(args):
           train_sec, eval_sec, train_sec + eval_sec)
     print(result)
 
-    f = open(args.output,"w+")
+    f = open(args.output,"a+")
     f.write(result)
     f.close()
-
 
 
 # In[ ]:
@@ -166,6 +183,7 @@ if __name__ == "__main__":
         # cache
         model = "linear" # or "rffm"
         model_dir = None
+        max_checkpoint = 10
         
         # train
         batch = 2048
