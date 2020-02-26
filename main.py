@@ -158,12 +158,12 @@ def main(args):
     print(testing_metrics)
     
     global_step = estimator.get_variable_value("global_step")
-    result = "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %f %f %f\n" % (
+    result = "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %s %f %f %f\n" % (
           train_metrics["tp"], train_metrics["fp"], train_metrics["fn"], train_metrics["tn"],
           valid_metrics["tp"], valid_metrics["fp"], valid_metrics["fn"], valid_metrics["tn"],
           testing_metrics["tp"], testing_metrics["fp"], testing_metrics["fn"], testing_metrics["tn"], 
           global_step, args.epoch, args.batch, args.window_size, args.learning_rate, args.dimension, args.stddev,
-          train_sec, eval_sec, train_sec + eval_sec)
+          args.model, train_sec, eval_sec, train_sec + eval_sec)
     print(result)
 
     f = open(args.output,"a+")
