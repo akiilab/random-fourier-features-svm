@@ -27,6 +27,9 @@ def sizeof_fmt(num, suffix='B'):
 
 # usage
 if __name__ == "__main__":
-    for name, size in sorted(((name, sys.getsizeof(value)) for name, value in locals().items()), key= lambda x: -x[1])[:10]:
-        print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
+    import numpy as np
+    import sys
+    print(sizeof_fmt(sys.getsizeof(np.arange(3000))))
+    # for name, size in sorted(((name, sys.getsizeof(value)) for name, value in locals().items()), key= lambda x: -x[1])[:10]:
+    #     print("{:>30}: {:>8}".format(name, sizeof_fmt(size)))
 

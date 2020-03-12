@@ -83,11 +83,15 @@ if __name__ == "__main__":
     window_size = 23
     
     X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, train_sample, valid_sample = load(window_size)
-    tf.estimator.RunConfig
     print("the length of training set:", len(X_train_orig))
     print("the length of testing set:", len(X_test_orig))
     print("the first row training data:", np.sum(X_train_orig[0][0][0]))
     print("the first row target value:", np.sum(Y_train_orig[0][0][0]))
+    
+    print(X_train_orig[0].shape)
+    print(Y_train_orig[0].shape)
+    print(train_sample[0])
+    print(valid_sample[0])
 
 
 # ## 3. Build Input Fn
@@ -101,6 +105,32 @@ if __name__ == "__main__":
 # - [StackOverflow: Train Tensorflow model with estimator (from_generator)](https://stackoverflow.com/questions/49673602/train-tensorflow-model-with-estimator-from-generator?rq=1)
 # - [StackOverflow: Is Tensorflow Dataset API slower than Queues?](https://stackoverflow.com/questions/47403407/is-tensorflow-dataset-api-slower-than-queues)
 # - [Github: How can I ues Dataset to shuffle a large whole dataset?](https://github.com/tensorflow/tensorflow/issues/14857)
+# 
+# **Got the warning: Out of range StopIteration**
+# 
+# ```shell
+# W tensorflow/core/framework/op_kernel.cc:1192] Out of range: StopIteration: Iteration finished
+# ```
+# 
+# > I also meeting this problem same for you,but it is not a bug.
+# >
+# > you can see the doc in https://www.tensorflow.org/api_docs/python/tf/estimator/Estimator about train()
+# > 
+# > steps: Number of steps for which to train model. If None, train forever or train until input_fn generates the OutOfRange error or StopIteration exception. 'steps' works incrementally. If you call two times train(steps=10) then training occurs in total 20 steps. If OutOfRange or StopIteration occurs in the middle, training stops before 20 steps. If you don't want to have incremental behavior please set max_steps instead. If set, max_steps must be None.
+# >
+# > -- libulin
+# 
+# From [Github Comment](https://github.com/tensorflow/tensorflow/issues/12414#issuecomment-345131765)
+# 
+# With the fix in [301a6c4](https://github.com/tensorflow/tensorflow/commit/301a6c41cbb111fae89657a49775920aa70525fd) (and a related fix for the StopIteration logging in [c154d47](https://github.com/tensorflow/tensorflow/commit/c154d4719eea88e694f4c06bcb1249dbac0f7877), the logs should be much quieter when using tf.data.
+# 
+# Simple fix:
+# 
+# ```python
+# import os
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # ERROR
+# import tensorflow as tf
+# ```
 
 # In[ ]:
 
@@ -126,10 +156,12 @@ def np_input_fn(X, Y, samples=[], shuffle=False, window_size=1, batch=None, epoc
     samples = [np.pad(x, ((0,0),(1,0)), 'constant', constant_values=i) for i, x in enumerate(samples)]
     samples = np.concatenate(samples)
     
-    if shuffle == True:
-        np.random.shuffle(samples)
+    print("input_fn total size", len(samples))
     
     def generator():
+        if shuffle == True:
+            np.random.shuffle(samples)
+        
         for s in samples:
             x = X[s[0]][s[1], s[2]].reshape((dim_in))
             y = Y[s[0]][s[1], s[2]].reshape((1))
@@ -145,6 +177,8 @@ def np_input_fn(X, Y, samples=[], shuffle=False, window_size=1, batch=None, epoc
 
         iterator = dataset.make_one_shot_iterator()
         features_tensors, labels = iterator.get_next()
+        print(features_tensors)
+        print(labels)
         features = {'data': features_tensors }
         return features, labels
     
@@ -189,7 +223,7 @@ def create_linear_model(learning_rate, dim_in, config=None):
         n_classes=2, 
         config=config,
         optimizer=optimizer)
-    tf.estimator.train_and_evaluate
+
     return estimator
 
 
@@ -334,7 +368,7 @@ def evaluate_model(estimator, X, Y, samples=[], window_size=1, batch=2048, epoch
 
 if __name__ == "__main__":
     start = time.time()
-    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, samples=train_sample, window_size=23)
+    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, batch=1, samples=train_sample, window_size=23)
     end = time.time()
     print('Elapsed time: {} seconds'.format(end - start))
     print("training metrics:", metrics)
@@ -347,7 +381,7 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     start = time.time()
-    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, samples=valid_sample, window_size=23)
+    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, batch=1, samples=valid_sample, window_size=23)
     end = time.time()
     print('Elapsed time: {} seconds'.format(end - start))
     print("validation metrics:", metrics)
@@ -359,11 +393,18 @@ if __name__ == "__main__":
 
 
 if __name__ == "__main__":
-    
+    print(len(X_test_orig))
     print(X_test_orig[0].shape)
+    print(X_test_orig[1].shape)
     start = time.time()
-    metrics = evaluate_model(estimator, X_test_orig, Y_test_orig, window_size=23)
+    metrics = evaluate_model(estimator, X_test_orig, Y_test_orig, batch=1, window_size=23)
     end = time.time()
     print('Elapsed time: {} seconds'.format(end - start))
     print("testing metrics:", metrics)
+
+
+# In[ ]:
+
+
+
 
