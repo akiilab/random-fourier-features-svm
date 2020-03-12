@@ -147,9 +147,9 @@ def main(args):
         return
     
     start = time.time()
-    train_metrics = svm.evaluate_model(estimator, X_train, Y_train, samples=train_sample, window_size=args.window_size)
-    valid_metrics = svm.evaluate_model(estimator, X_train, Y_train, samples=valid_sample, window_size=args.window_size)
-    testing_metrics = svm.evaluate_model(estimator, X_test, Y_test, window_size=args.window_size)
+    train_metrics = svm.evaluate_model(estimator, X_train, Y_train, batch=65536, samples=train_sample, window_size=args.window_size)
+    valid_metrics = svm.evaluate_model(estimator, X_train, Y_train, batch=65536, samples=valid_sample, window_size=args.window_size)
+    testing_metrics = svm.evaluate_model(estimator, X_test, Y_test, batch=65536, window_size=args.window_size)
     eval_sec = time.time() - start
     print('Evaluate Elapsed time: {} seconds'.format(eval_sec))
     
