@@ -104,7 +104,7 @@ def config(args):
         tf_random_seed=None,
         save_summary_steps=100,
         save_checkpoints_steps=None,
-        save_checkpoints_secs=600,
+        save_checkpoints_secs=86400,
         session_config=None,
         keep_checkpoint_max=args.max_checkpoint,
         keep_checkpoint_every_n_hours=10000,
