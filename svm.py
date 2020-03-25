@@ -73,7 +73,9 @@ def load(window_size):
     Y_train = pc.classify(Y_train)
     Y_test = pc.classify(Y_test)
     
-    return X_train, Y_train, X_test, Y_test, train_sample, valid_sample
+    testing_sample = [np.indices((x.shape[0], x.shape[1])).reshape((2,-1)).T for x in X_test]
+    
+    return X_train, Y_train, X_test, Y_test, train_sample, valid_sample, testing_sample
 
 
 # In[ ]:
@@ -82,7 +84,7 @@ def load(window_size):
 if __name__ == "__main__":
     window_size = 23
     
-    X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, train_sample, valid_sample = load(window_size)
+    X_train_orig, Y_train_orig, X_test_orig, Y_test_orig, train_sample, valid_sample, testing_sample = load(window_size)
     print("the length of training set:", len(X_train_orig))
     print("the length of testing set:", len(X_test_orig))
     print("the first row training data:", np.sum(X_train_orig[0][0][0]))
@@ -135,7 +137,7 @@ if __name__ == "__main__":
 # In[ ]:
 
 
-def np_input_fn(X, Y, samples=[], shuffle=False, window_size=1, batch=None, epoch=None):
+def np_input_fn(X, Y, samples, shuffle=False, window_size=1, batch=None, epoch=None):
     if batch is None:
         raise Exception('batch can not be None')
     
@@ -149,9 +151,6 @@ def np_input_fn(X, Y, samples=[], shuffle=False, window_size=1, batch=None, epoc
         Y = [Y]
     if not isinstance(samples, list):
         samples = [samples]
-    
-    if len(samples) == 0:
-        samples = [np.indices((x.shape[0], x.shape[1])).reshape((2,-1)).T for x in X]
     
     samples = [np.pad(x, ((0,0),(1,0)), 'constant', constant_values=i) for i, x in enumerate(samples)]
     samples = np.concatenate(samples)
@@ -342,7 +341,7 @@ if __name__ == "__main__":
 # In[ ]:
 
 
-def evaluate_model(estimator, X, Y, samples=[], window_size=1, batch=2048, epoch=1):
+def evaluate_model(estimator, X, Y, samples, window_size=1, batch=2048, epoch=1):
 
     eval_input_fn = np_input_fn(X, Y, samples, shuffle=False, window_size=window_size, batch=batch, epoch=epoch)
     
@@ -368,7 +367,7 @@ def evaluate_model(estimator, X, Y, samples=[], window_size=1, batch=2048, epoch
 
 if __name__ == "__main__":
     start = time.time()
-    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, batch=1, samples=train_sample, window_size=23)
+    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, train_sample, batch=1, window_size=23)
     end = time.time()
     print('Elapsed time: {} seconds'.format(end - start))
     print("training metrics:", metrics)
@@ -381,7 +380,7 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     start = time.time()
-    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, batch=1, samples=valid_sample, window_size=23)
+    metrics = evaluate_model(estimator, X_train_orig, Y_train_orig, valid_sample, batch=1, window_size=23)
     end = time.time()
     print('Elapsed time: {} seconds'.format(end - start))
     print("validation metrics:", metrics)
@@ -397,7 +396,7 @@ if __name__ == "__main__":
     print(X_test_orig[0].shape)
     print(X_test_orig[1].shape)
     start = time.time()
-    metrics = evaluate_model(estimator, X_test_orig, Y_test_orig, batch=1, window_size=23)
+    metrics = evaluate_model(estimator, X_test_orig, Y_test_orig, testing_sample, batch=1, window_size=23)
     end = time.time()
     print('Elapsed time: {} seconds'.format(end - start))
     print("testing metrics:", metrics)

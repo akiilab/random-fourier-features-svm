@@ -8,6 +8,7 @@
 
 import tensorflow as tf
 import svm
+import datastat
 import time
 
 
@@ -118,7 +119,7 @@ def config(args):
 def main(args):
     
     # Loading Dataset and Preprocessing Data
-    X_train, Y_train, X_test, Y_test, train_sample, valid_sample = svm.load(args.window_size)
+    X_train, Y_train, X_test, Y_test, train_sample, valid_sample, testing_sample = svm.load(args.window_size)
 
     # Build Input Fn
     train_input_fn = svm.np_input_fn(X_train, 
@@ -147,16 +148,24 @@ def main(args):
         return
     
     start = time.time()
-    train_metrics = svm.evaluate_model(estimator, X_train, Y_train, batch=65536, samples=train_sample, window_size=args.window_size)
-    valid_metrics = svm.evaluate_model(estimator, X_train, Y_train, batch=65536, samples=valid_sample, window_size=args.window_size)
-    testing_metrics = svm.evaluate_model(estimator, X_test, Y_test, batch=65536, window_size=args.window_size)
+    train_metrics = svm.evaluate_model(estimator, X_train, Y_train, train_sample, batch=2048, window_size=args.window_size)
+    valid_metrics = svm.evaluate_model(estimator, X_train, Y_train, valid_sample, batch=2048, window_size=args.window_size)
+    testing_metrics = svm.evaluate_model(estimator, X_test, Y_test, testing_sample, batch=2048, window_size=args.window_size)
     eval_sec = time.time() - start
     print('Evaluate Elapsed time: {} seconds'.format(eval_sec))
+    
+    train = datastat.sum_stat(Y_train, train_sample)[0]
+    vaild = datastat.sum_stat(Y_train, valid_sample)[0]
+    test  = datastat.sum_stat(Y_test, testing_sample)[0]
+    
+    train_metrics["tn"] = train - (train_metrics["tp"] + train_metrics["fp"] + train_metrics["fn"])
+    valid_metrics["tn"] = vaild - (valid_metrics["tp"] + valid_metrics["fp"] + valid_metrics["fn"])
+    testing_metrics["tn"] = test - (testing_metrics["tp"] + testing_metrics["fp"] + testing_metrics["fn"])
     
     print(train_metrics)
     print(valid_metrics)
     print(testing_metrics)
-    
+
     global_step = estimator.get_variable_value("global_step")
     result = "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %s %f %f %f\n" % (
           train_metrics["tp"], train_metrics["fp"], train_metrics["fn"], train_metrics["tn"],
